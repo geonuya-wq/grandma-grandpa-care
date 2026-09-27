@@ -299,8 +299,77 @@ function UploadModal({
 
 /* ---------------- 부모님 카톡 시뮬레이터 ---------------- */
 
-function KakaoSimulator({ onConfirm }: { onConfirm: () => void }) {
+const CONDITIONS = [
+  { v: "좋음", e: "😊" },
+  { v: "보통", e: "🙂" },
+  { v: "안좋음", e: "😣" },
+];
+const SYMPTOMS = ["어지러움", "두통", "속쓰림", "피로", "잠 못잠", "붓기", "기침"];
+
+function ConditionForm({ onSubmit }: { onSubmit: (c: string, s: string[], n: string) => void }) {
+  const [cond, setCond] = useState<string | null>(null);
+  const [sym, setSym] = useState<string[]>([]);
+  const [note, setNote] = useState("");
+  return (
+    <div className="animate-pop-in overflow-hidden rounded-2xl bg-white p-5 shadow-lg">
+      <p className="text-lg font-bold text-gray-800">오늘 몸은 어떠세요?</p>
+      <div className="mt-3 flex gap-2">
+        {CONDITIONS.map((c) => (
+          <button
+            key={c.v}
+            onClick={() => setCond(c.v)}
+            className={`flex flex-1 flex-col items-center rounded-2xl py-3 text-base font-bold ${
+              cond === c.v ? "bg-primary text-primary-foreground" : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            <span className="text-3xl">{c.e}</span>
+            {c.v}
+          </button>
+        ))}
+      </div>
+      <p className="mt-4 text-sm font-semibold text-gray-600">불편한 곳이 있으면 눌러주세요</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {SYMPTOMS.map((s) => (
+          <button
+            key={s}
+            onClick={() => setSym((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]))}
+            className={`rounded-full px-4 py-2 text-base font-semibold ${
+              sym.includes(s) ? "bg-sunshine text-accent-foreground" : "bg-gray-100 text-gray-600"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="하고 싶은 말 (선택)"
+        className="mt-3 w-full rounded-xl bg-gray-100 px-4 py-3 text-base text-gray-800 outline-none"
+      />
+      <button
+        disabled={!cond}
+        onClick={() => cond && onSubmit(cond, sym, note)}
+        className="mt-4 w-full rounded-2xl bg-primary py-5 text-xl font-bold text-primary-foreground disabled:opacity-50"
+      >
+        자녀에게 보내기 💌
+      </button>
+    </div>
+  );
+}
+
+function KakaoSimulator({
+  onConfirm,
+  onCondition,
+  appointment,
+}: {
+  onConfirm: () => void;
+  onCondition: (c: string, s: string[], n: string) => void;
+  appointment: Appointment;
+}) {
   const [answered, setAnswered] = useState<"none" | "done" | "snooze">("none");
+  const [condSent, setCondSent] = useState(false);
+  const [apptOk, setApptOk] = useState(false);
 
   return (
     <div className="flex min-h-dvh flex-col" style={{ backgroundColor: "#9bbbd4" }}>
@@ -315,7 +384,35 @@ function KakaoSimulator({ onConfirm }: { onConfirm: () => void }) {
         </div>
       </div>
 
-      <div className="flex-1 space-y-4 px-4 py-6">
+      <div className="flex-1 space-y-4 px-4 py-6 pb-28">
+        <p className="text-center text-[11px]" style={{ color: "#3d5568" }}>
+          오늘 오전 9:00
+        </p>
+
+        {/* 병원 예약 알림 */}
+        <div className="overflow-hidden rounded-2xl bg-white shadow-lg">
+          <div className="bg-sunshine px-5 py-3">
+            <p className="text-xs font-bold text-accent-foreground">🏥 병원 예약 알림</p>
+          </div>
+          <div className="px-5 py-5">
+            <p className="text-xl font-bold leading-relaxed text-gray-800">
+              어머니, {daysUntil(appointment.date)}일 뒤<br />
+              {appointment.title} 가시는 날이에요
+            </p>
+            <p className="mt-2 text-base text-gray-600">
+              {fmtDate(appointment.date)} {appointment.time} · {appointment.place}
+            </p>
+            <p className="mt-1 text-sm text-gray-500">건강보험증과 드시는 약을 챙겨주세요.</p>
+            <button
+              onClick={() => setApptOk(true)}
+              disabled={apptOk}
+              className="mt-4 w-full rounded-2xl bg-primary py-4 text-lg font-bold text-primary-foreground disabled:opacity-60"
+            >
+              {apptOk ? "확인했어요 ✓" : "알겠어요 👌"}
+            </button>
+          </div>
+        </div>
+
         <p className="text-center text-[11px]" style={{ color: "#3d5568" }}>
           오늘 오후 12:30
         </p>
@@ -368,6 +465,20 @@ function KakaoSimulator({ onConfirm }: { onConfirm: () => void }) {
             30분 뒤 다시 알림 ⏰
           </button>
         </div>
+
+        {answered === "done" && !condSent && (
+          <ConditionForm
+            onSubmit={(c, s, n) => {
+              setCondSent(true);
+              onCondition(c, s, n);
+            }}
+          />
+        )}
+        {condSent && (
+          <div className="animate-pop-in rounded-2xl bg-white px-5 py-4 text-center text-base font-bold text-gray-700 shadow-lg">
+            컨디션을 자녀분께 전달했어요 💌
+          </div>
+        )}
 
         <p className="pt-4 text-center text-xs" style={{ color: "#3d5568" }}>
           ※ 실제 부모님 카톡 화면을 시뮬레이션한 화면입니다
