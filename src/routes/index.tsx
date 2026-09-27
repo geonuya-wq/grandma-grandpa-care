@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import {
+  Bell,
   Camera,
   Check,
   Clock,
@@ -8,8 +10,10 @@ import {
   ImagePlus,
   MessageCircle,
   Pill,
+  Sparkles,
   X,
 } from "lucide-react";
+import { analyzeHealthLogs, type HealthReport } from "@/lib/health.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -46,6 +50,56 @@ const INITIAL_DOSES: Dose[] = [
   { id: "morning", label: "아침 식후", time: "08:30", status: "done" },
   { id: "lunch", label: "점심 식후", time: "12:30", status: "waiting" },
   { id: "evening", label: "저녁 식후", time: "18:30", status: "scheduled" },
+];
+
+const TODAY = new Date(2026, 8, 27);
+
+interface Appointment {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time: string;
+  place: string;
+  memo: string;
+}
+
+const APPOINTMENTS: Appointment[] = [
+  { id: "a1", title: "튼튼내과 정기 검진", date: "2026-10-02", time: "오전 10:00", place: "튼튼내과", memo: "혈압·당뇨 상담" },
+  { id: "a2", title: "밝은눈안과 백내장 검사", date: "2026-10-15", time: "오후 2:30", place: "밝은눈안과", memo: "보호자 동행 권장" },
+];
+
+function daysUntil(date: string) {
+  const [y, m, d] = date.split("-").map(Number);
+  return Math.round((new Date(y, m - 1, d).getTime() - TODAY.getTime()) / 86400000);
+}
+function fmtDate(date: string) {
+  const [, m, d] = date.split("-").map(Number);
+  return `${m}월 ${d}일`;
+}
+
+interface ConditionLog {
+  date: string;
+  dose: string;
+  taken: boolean;
+  condition: string;
+  symptoms: string[];
+  note: string;
+}
+
+const PAST_LOGS: ConditionLog[] = [
+  { date: "09-21", dose: "아침", taken: true, condition: "좋음", symptoms: [], note: "" },
+  { date: "09-22", dose: "아침", taken: true, condition: "좋음", symptoms: [], note: "산책했어" },
+  { date: "09-23", dose: "점심", taken: false, condition: "보통", symptoms: ["피로"], note: "깜빡했네" },
+  { date: "09-24", dose: "아침", taken: true, condition: "보통", symptoms: ["어지러움"], note: "아침에 일어날 때 핑 돌아" },
+  { date: "09-25", dose: "아침", taken: true, condition: "안좋음", symptoms: ["어지러움", "잠 못잠"], note: "" },
+  { date: "09-26", dose: "저녁", taken: true, condition: "보통", symptoms: ["어지러움"], note: "" },
+  { date: "09-27", dose: "아침", taken: true, condition: "보통", symptoms: [], note: "" },
+];
+
+const REMINDER_OPTIONS = [
+  { id: "d3", label: "3일 전", days: 3 },
+  { id: "d1", label: "하루 전", days: 1 },
+  { id: "d0", label: "당일 아침", days: 0 },
 ];
 
 const CONFETTI_COLORS = ["#8fd6a8", "#f6c98f", "#f9e08a", "#a8d8f0", "#f2a9a9"];
