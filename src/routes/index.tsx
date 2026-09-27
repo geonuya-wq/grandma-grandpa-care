@@ -69,7 +69,7 @@ const APPOINTMENTS: Appointment[] = [
 ];
 
 function daysUntil(date: string) {
-  const [y, m, d] = date.split("-").map(Number);
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
   return Math.round((new Date(y, m - 1, d).getTime() - TODAY.getTime()) / 86400000);
 }
 function fmtDate(date: string) {

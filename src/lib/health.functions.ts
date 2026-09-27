@@ -19,7 +19,7 @@ export interface HealthReport {
 export const analyzeHealthLogs = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ logs: z.array(LogSchema).max(200) }).parse(d))
   .handler(async ({ data }): Promise<{ report?: HealthReport; error?: string }> => {
-    const apiKey = process.env.LOVABLE_API_KEY;
+    const apiKey = process.env["LOVABLE_API_KEY"];
     if (!apiKey) return { error: "AI 설정이 되어 있지 않아요." };
 
     const prompt = `당신은 멀리 사는 자녀에게 부모님의 복약·컨디션 기록을 요약해주는 따뜻한 건강 도우미입니다.
