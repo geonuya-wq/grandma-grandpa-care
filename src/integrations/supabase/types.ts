@@ -14,7 +14,146 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      dose_logs: {
+        Row: {
+          condition: string | null
+          created_at: string
+          id: string
+          log_date: string
+          note: string | null
+          parent_id: string
+          schedule_id: string
+          status: string
+          symptoms: string[]
+          taken_at: string | null
+          user_id: string
+        }
+        Insert: {
+          condition?: string | null
+          created_at?: string
+          id?: string
+          log_date?: string
+          note?: string | null
+          parent_id: string
+          schedule_id: string
+          status?: string
+          symptoms?: string[]
+          taken_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          condition?: string | null
+          created_at?: string
+          id?: string
+          log_date?: string
+          note?: string | null
+          parent_id?: string
+          schedule_id?: string
+          status?: string
+          symptoms?: string[]
+          taken_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dose_logs_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dose_logs_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "medication_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_schedules: {
+        Row: {
+          active: boolean
+          created_at: string
+          dose_time: string
+          end_date: string | null
+          hospital: string | null
+          id: string
+          label: string
+          medicines: string[]
+          parent_id: string
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          dose_time: string
+          end_date?: string | null
+          hospital?: string | null
+          id?: string
+          label: string
+          medicines?: string[]
+          parent_id: string
+          start_date?: string
+          user_id?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          dose_time?: string
+          end_date?: string | null
+          hospital?: string | null
+          id?: string
+          label?: string
+          medicines?: string[]
+          parent_id?: string
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_schedules_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parents: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          memo: string | null
+          name: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          memo?: string | null
+          name: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          memo?: string | null
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
