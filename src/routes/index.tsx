@@ -22,13 +22,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "멀리 계신 부모님의 복약과 병원 일정을 자녀가 함께 챙기는 모바일 앱. 약봉투 사진 한 장으로 복약 일정을 등록하세요.",
+          "멀리 계신 부모님의 복약과 병원 일정을 자녀가 함께 챙기는 모바일 앱. 처방전 사진 한 장으로 복약 일정을 등록하세요.",
       },
       { property: "og:title", content: "효도약속 — 부모님 복약 챙기기" },
       {
         property: "og:description",
         content:
-          "약봉투 사진 한 장으로 부모님 복약 일정을 등록하고, 카톡으로 복약 확인을 받아보세요.",
+          "처방전 사진 한 장으로 부모님 복약 일정을 등록하고, 카톡으로 복약 확인을 받아보세요.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -203,7 +203,7 @@ function StatusBadge({ status }: { status: DoseStatus }) {
   );
 }
 
-/* ---------------- 약봉투 등록 모달 ---------------- */
+/* ---------------- 처방전 등록 모달 ---------------- */
 
 function UploadModal({
   onClose,
@@ -234,7 +234,7 @@ function UploadModal({
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-foreground/40">
       <div className="animate-slide-up max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-card p-6 pb-10 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-bold">약봉투 사진으로 빠른 등록</h2>
+          <h2 className="text-lg font-bold">처방전 사진으로 빠른 등록</h2>
           <button
             onClick={onClose}
             aria-label="닫기"
@@ -253,7 +253,7 @@ function UploadModal({
               <Camera className="h-7 w-7" />
               <div>
                 <p className="font-bold">카메라로 촬영하기</p>
-                <p className="text-xs opacity-80">약봉투 앞면을 촬영해주세요</p>
+                <p className="text-xs opacity-80">처방전 전체가 보이도록 촬영해주세요</p>
               </div>
             </button>
             <button
@@ -289,12 +289,12 @@ function UploadModal({
             {preview && (
               <img
                 src={preview}
-                alt="약봉투 사진"
+                alt="처방전 사진"
                 className="mb-6 h-36 w-36 rounded-2xl object-cover shadow-md"
               />
             )}
             <div className="animate-spin-slow mb-4 h-10 w-10 rounded-full border-4 border-secondary border-t-primary" />
-            <p className="font-semibold">AI가 약봉투를 분석하고 있어요…</p>
+            <p className="font-semibold">AI가 처방전을 분석하고 있어요…</p>
             <p className="mt-1 text-xs text-muted-foreground">
               약 이름과 복용 시간을 읽는 중입니다
             </p>
@@ -794,7 +794,7 @@ function Index() {
             className="fixed bottom-24 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-6 py-4 font-bold text-primary-foreground shadow-xl active:scale-95 transition-transform"
           >
             <Camera className="h-5 w-5" />
-            약봉투 사진으로 빠른 등록
+            처방전 사진으로 빠른 등록
           </button>
         </>
       ) : (
