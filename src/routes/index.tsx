@@ -669,18 +669,120 @@ function Index() {
             </div>
           </section>
 
-          {/* 병원 일정 */}
+          {/* AI 건강 리포트 */}
+          <section className="mx-5 mt-5 rounded-3xl bg-card p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-1.5 text-sm font-bold">
+                <Sparkles className="h-4 w-4 text-leaf" /> AI 컨디션 리포트
+              </h2>
+              <span className="text-[11px] text-muted-foreground">기록 {logs.length}건</span>
+            </div>
+            <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+              {logs.slice(-7).map((l, i) => (
+                <div key={i} className="flex min-w-[44px] flex-col items-center rounded-xl bg-muted px-2 py-1.5">
+                  <span className="text-lg">
+                    {l.condition === "좋음" ? "😊" : l.condition === "보통" ? "🙂" : "😣"}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground">{l.date.slice(3)}일</span>
+                  {!l.taken && <span className="text-[9px] font-bold text-destructive">미복용</span>}
+                </div>
+              ))}
+            </div>
+            {report ? (
+              <div className="animate-pop-in space-y-2.5">
+                <p className="text-sm leading-relaxed">{report.summary}</p>
+                {report.alerts.map((a, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                      a.level === "주의"
+                        ? "bg-destructive/10 text-destructive"
+                        : a.level === "관찰"
+                          ? "bg-sunshine text-accent-foreground"
+                          : "bg-leaf-soft text-secondary-foreground"
+                    }`}
+                  >
+                    <b>{a.level}</b> · {a.text}
+                  </div>
+                ))}
+                {report.tip && (
+                  <p className="rounded-xl bg-warm px-3 py-2 text-xs">💬 {report.tip}</p>
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  ※ 참고용 요약이며 의학적 진단이 아니에요.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                부모님이 남긴 컨디션·증상 기록을 분석해 주의할 변화를 알려드려요.
+              </p>
+            )}
+            {reportError && <p className="mt-2 text-xs text-destructive">{reportError}</p>}
+            <button
+              onClick={runAnalysis}
+              disabled={analyzing}
+              className="mt-3 w-full rounded-2xl bg-secondary py-3 text-sm font-bold text-secondary-foreground disabled:opacity-60"
+            >
+              {analyzing ? "분석 중…" : report ? "다시 분석하기" : "기록 분석하기"}
+            </button>
+          </section>
+
+          {/* 병원 일정 + 알림 */}
           <section className="mx-5 mt-5 rounded-3xl bg-warm p-5">
-            <h2 className="mb-2 text-sm font-bold">다가오는 병원 일정</h2>
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-card shadow-sm">
-                <span className="text-[9px] font-bold text-destructive">10월</span>
-                <span className="text-sm font-bold leading-none">2</span>
+            <h2 className="mb-3 text-sm font-bold">다가오는 병원 일정</h2>
+            {nextDays <= 5 && (
+              <div className="mb-3 flex items-center gap-2 rounded-xl bg-sunshine px-3 py-2 text-xs font-semibold text-accent-foreground">
+                <Bell className="h-4 w-4" /> D-{nextDays} · {nextAppt.title} 가 다가와요
               </div>
-              <div>
-                <p className="text-sm font-semibold">튼튼내과 정기 검진</p>
-                <p className="text-xs text-muted-foreground">오전 10:00 · 혈압·당뇨 상담</p>
+            )}
+            <div className="space-y-3">
+              {APPOINTMENTS.map((a) => {
+                const [, m, d] = a.date.split("-").map(Number);
+                return (
+                  <div key={a.id} className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-card shadow-sm">
+                      <span className="text-[9px] font-bold text-destructive">{m}월</span>
+                      <span className="text-sm font-bold leading-none">{d}</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold">{a.title}</p>
+                      <p className="text-xs text-muted-foreground">{a.time} · {a.memo}</p>
+                    </div>
+                    <span className="text-xs font-bold text-leaf">D-{daysUntil(a.date)}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 rounded-2xl bg-card p-3">
+              <p className="mb-2 text-xs font-semibold">미리 알림</p>
+              <div className="flex gap-1.5">
+                {REMINDER_OPTIONS.map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => setReminders((r) => ({ ...r, [o.id]: !r[o.id] }))}
+                    className={`flex-1 rounded-lg py-2 text-xs font-semibold ${
+                      reminders[o.id] ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
               </div>
+              <label className="mt-3 flex items-center justify-between text-xs">
+                <span>부모님께도 카톡 알림 보내기</span>
+                <input
+                  type="checkbox"
+                  checked={notifyParent}
+                  onChange={(e) => setNotifyParent(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--primary)]"
+                />
+              </label>
+              <button
+                onClick={testNotification}
+                className="mt-3 w-full rounded-xl bg-secondary py-2.5 text-xs font-bold text-secondary-foreground"
+              >
+                🔔 알림 미리 받아보기
+              </button>
             </div>
           </section>
 
@@ -696,7 +798,11 @@ function Index() {
           </button>
         </>
       ) : (
-        <KakaoSimulator onConfirm={confirmLunch} />
+        <KakaoSimulator
+          onConfirm={confirmLunch}
+          onCondition={addCondition}
+          appointment={nextAppt}
+        />
       )}
 
       {/* 하단 탭 */}
