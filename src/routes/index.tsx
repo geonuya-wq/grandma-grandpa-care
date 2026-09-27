@@ -594,7 +594,7 @@ function Index() {
     }
   };
 
-  const nextAppt = APPOINTMENTS[0];
+  const nextAppt = APPOINTMENTS[0]!;
   const nextDays = daysUntil(nextAppt.date);
 
   const testNotification = async () => {
