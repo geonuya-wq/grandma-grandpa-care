@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import {
+  Bell,
   Camera,
   Check,
   Clock,
@@ -8,8 +10,10 @@ import {
   ImagePlus,
   MessageCircle,
   Pill,
+  Sparkles,
   X,
 } from "lucide-react";
+import { analyzeHealthLogs, type HealthReport } from "@/lib/health.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -46,6 +50,56 @@ const INITIAL_DOSES: Dose[] = [
   { id: "morning", label: "아침 식후", time: "08:30", status: "done" },
   { id: "lunch", label: "점심 식후", time: "12:30", status: "waiting" },
   { id: "evening", label: "저녁 식후", time: "18:30", status: "scheduled" },
+];
+
+const TODAY = new Date(2026, 8, 27);
+
+interface Appointment {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time: string;
+  place: string;
+  memo: string;
+}
+
+const APPOINTMENTS: Appointment[] = [
+  { id: "a1", title: "튼튼내과 정기 검진", date: "2026-10-02", time: "오전 10:00", place: "튼튼내과", memo: "혈압·당뇨 상담" },
+  { id: "a2", title: "밝은눈안과 백내장 검사", date: "2026-10-15", time: "오후 2:30", place: "밝은눈안과", memo: "보호자 동행 권장" },
+];
+
+function daysUntil(date: string) {
+  const [y, m, d] = date.split("-").map(Number);
+  return Math.round((new Date(y, m - 1, d).getTime() - TODAY.getTime()) / 86400000);
+}
+function fmtDate(date: string) {
+  const [, m, d] = date.split("-").map(Number);
+  return `${m}월 ${d}일`;
+}
+
+interface ConditionLog {
+  date: string;
+  dose: string;
+  taken: boolean;
+  condition: string;
+  symptoms: string[];
+  note: string;
+}
+
+const PAST_LOGS: ConditionLog[] = [
+  { date: "09-21", dose: "아침", taken: true, condition: "좋음", symptoms: [], note: "" },
+  { date: "09-22", dose: "아침", taken: true, condition: "좋음", symptoms: [], note: "산책했어" },
+  { date: "09-23", dose: "점심", taken: false, condition: "보통", symptoms: ["피로"], note: "깜빡했네" },
+  { date: "09-24", dose: "아침", taken: true, condition: "보통", symptoms: ["어지러움"], note: "아침에 일어날 때 핑 돌아" },
+  { date: "09-25", dose: "아침", taken: true, condition: "안좋음", symptoms: ["어지러움", "잠 못잠"], note: "" },
+  { date: "09-26", dose: "저녁", taken: true, condition: "보통", symptoms: ["어지러움"], note: "" },
+  { date: "09-27", dose: "아침", taken: true, condition: "보통", symptoms: [], note: "" },
+];
+
+const REMINDER_OPTIONS = [
+  { id: "d3", label: "3일 전", days: 3 },
+  { id: "d1", label: "하루 전", days: 1 },
+  { id: "d0", label: "당일 아침", days: 0 },
 ];
 
 const CONFETTI_COLORS = ["#8fd6a8", "#f6c98f", "#f9e08a", "#a8d8f0", "#f2a9a9"];
@@ -299,8 +353,77 @@ function UploadModal({
 
 /* ---------------- 부모님 카톡 시뮬레이터 ---------------- */
 
-function KakaoSimulator({ onConfirm }: { onConfirm: () => void }) {
+const CONDITIONS = [
+  { v: "좋음", e: "😊" },
+  { v: "보통", e: "🙂" },
+  { v: "안좋음", e: "😣" },
+];
+const SYMPTOMS = ["어지러움", "두통", "속쓰림", "피로", "잠 못잠", "붓기", "기침"];
+
+function ConditionForm({ onSubmit }: { onSubmit: (c: string, s: string[], n: string) => void }) {
+  const [cond, setCond] = useState<string | null>(null);
+  const [sym, setSym] = useState<string[]>([]);
+  const [note, setNote] = useState("");
+  return (
+    <div className="animate-pop-in overflow-hidden rounded-2xl bg-white p-5 shadow-lg">
+      <p className="text-lg font-bold text-gray-800">오늘 몸은 어떠세요?</p>
+      <div className="mt-3 flex gap-2">
+        {CONDITIONS.map((c) => (
+          <button
+            key={c.v}
+            onClick={() => setCond(c.v)}
+            className={`flex flex-1 flex-col items-center rounded-2xl py-3 text-base font-bold ${
+              cond === c.v ? "bg-primary text-primary-foreground" : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            <span className="text-3xl">{c.e}</span>
+            {c.v}
+          </button>
+        ))}
+      </div>
+      <p className="mt-4 text-sm font-semibold text-gray-600">불편한 곳이 있으면 눌러주세요</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {SYMPTOMS.map((s) => (
+          <button
+            key={s}
+            onClick={() => setSym((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]))}
+            className={`rounded-full px-4 py-2 text-base font-semibold ${
+              sym.includes(s) ? "bg-sunshine text-accent-foreground" : "bg-gray-100 text-gray-600"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="하고 싶은 말 (선택)"
+        className="mt-3 w-full rounded-xl bg-gray-100 px-4 py-3 text-base text-gray-800 outline-none"
+      />
+      <button
+        disabled={!cond}
+        onClick={() => cond && onSubmit(cond, sym, note)}
+        className="mt-4 w-full rounded-2xl bg-primary py-5 text-xl font-bold text-primary-foreground disabled:opacity-50"
+      >
+        자녀에게 보내기 💌
+      </button>
+    </div>
+  );
+}
+
+function KakaoSimulator({
+  onConfirm,
+  onCondition,
+  appointment,
+}: {
+  onConfirm: () => void;
+  onCondition: (c: string, s: string[], n: string) => void;
+  appointment: Appointment;
+}) {
   const [answered, setAnswered] = useState<"none" | "done" | "snooze">("none");
+  const [condSent, setCondSent] = useState(false);
+  const [apptOk, setApptOk] = useState(false);
 
   return (
     <div className="flex min-h-dvh flex-col" style={{ backgroundColor: "#9bbbd4" }}>
@@ -315,7 +438,35 @@ function KakaoSimulator({ onConfirm }: { onConfirm: () => void }) {
         </div>
       </div>
 
-      <div className="flex-1 space-y-4 px-4 py-6">
+      <div className="flex-1 space-y-4 px-4 py-6 pb-28">
+        <p className="text-center text-[11px]" style={{ color: "#3d5568" }}>
+          오늘 오전 9:00
+        </p>
+
+        {/* 병원 예약 알림 */}
+        <div className="overflow-hidden rounded-2xl bg-white shadow-lg">
+          <div className="bg-sunshine px-5 py-3">
+            <p className="text-xs font-bold text-accent-foreground">🏥 병원 예약 알림</p>
+          </div>
+          <div className="px-5 py-5">
+            <p className="text-xl font-bold leading-relaxed text-gray-800">
+              어머니, {daysUntil(appointment.date)}일 뒤<br />
+              {appointment.title} 가시는 날이에요
+            </p>
+            <p className="mt-2 text-base text-gray-600">
+              {fmtDate(appointment.date)} {appointment.time} · {appointment.place}
+            </p>
+            <p className="mt-1 text-sm text-gray-500">건강보험증과 드시는 약을 챙겨주세요.</p>
+            <button
+              onClick={() => setApptOk(true)}
+              disabled={apptOk}
+              className="mt-4 w-full rounded-2xl bg-primary py-4 text-lg font-bold text-primary-foreground disabled:opacity-60"
+            >
+              {apptOk ? "확인했어요 ✓" : "알겠어요 👌"}
+            </button>
+          </div>
+        </div>
+
         <p className="text-center text-[11px]" style={{ color: "#3d5568" }}>
           오늘 오후 12:30
         </p>
@@ -369,6 +520,20 @@ function KakaoSimulator({ onConfirm }: { onConfirm: () => void }) {
           </button>
         </div>
 
+        {answered === "done" && !condSent && (
+          <ConditionForm
+            onSubmit={(c, s, n) => {
+              setCondSent(true);
+              onCondition(c, s, n);
+            }}
+          />
+        )}
+        {condSent && (
+          <div className="animate-pop-in rounded-2xl bg-white px-5 py-4 text-center text-base font-bold text-gray-700 shadow-lg">
+            컨디션을 자녀분께 전달했어요 💌
+          </div>
+        )}
+
         <p className="pt-4 text-center text-xs" style={{ color: "#3d5568" }}>
           ※ 실제 부모님 카톡 화면을 시뮬레이션한 화면입니다
         </p>
@@ -385,8 +550,20 @@ function Index() {
   const [showUpload, setShowUpload] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [logs, setLogs] = useState<ConditionLog[]>(PAST_LOGS);
+  const [report, setReport] = useState<HealthReport | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reminders, setReminders] = useState<Record<string, boolean>>({ d3: true, d1: true, d0: true });
+  const [notifyParent, setNotifyParent] = useState(true);
+  const analyze = useServerFn(analyzeHealthLogs);
 
   const doneCount = doses.filter((d) => d.status === "done").length;
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const confirmLunch = () => {
     setDoses((ds) =>
@@ -394,8 +571,42 @@ function Index() {
     );
     setShowConfetti(true);
     setTimeout(() => setShowConfetti(false), 2800);
-    setToast("어머니가 점심 약을 드셨어요! 💚");
-    setTimeout(() => setToast(null), 3000);
+    showToast("어머니가 점심 약을 드셨어요! 💚");
+  };
+
+  const addCondition = (condition: string, symptoms: string[], note: string) => {
+    setLogs((l) => [...l, { date: "09-27", dose: "점심", taken: true, condition, symptoms, note }]);
+    setReport(null);
+    showToast(`어머니 컨디션: ${condition}${symptoms.length ? ` · ${symptoms.join(", ")}` : ""}`);
+  };
+
+  const runAnalysis = async () => {
+    setAnalyzing(true);
+    setReportError(null);
+    try {
+      const r = await analyze({ data: { logs } });
+      if (r.error) setReportError(r.error);
+      else if (r.report) setReport(r.report);
+    } catch {
+      setReportError("분석에 실패했어요. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const nextAppt = APPOINTMENTS[0]!;
+  const nextDays = daysUntil(nextAppt.date);
+
+  const testNotification = async () => {
+    const body = `${fmtDate(nextAppt.date)} ${nextAppt.time} ${nextAppt.title} (D-${nextDays})`;
+    if (typeof Notification !== "undefined") {
+      const perm = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
+      if (perm === "granted") {
+        new Notification("🏥 병원 예약 알림", { body });
+        return;
+      }
+    }
+    showToast(`🏥 ${body}`);
   };
 
   return (
@@ -458,18 +669,120 @@ function Index() {
             </div>
           </section>
 
-          {/* 병원 일정 */}
+          {/* AI 건강 리포트 */}
+          <section className="mx-5 mt-5 rounded-3xl bg-card p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-1.5 text-sm font-bold">
+                <Sparkles className="h-4 w-4 text-leaf" /> AI 컨디션 리포트
+              </h2>
+              <span className="text-[11px] text-muted-foreground">기록 {logs.length}건</span>
+            </div>
+            <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+              {logs.slice(-7).map((l, i) => (
+                <div key={i} className="flex min-w-[44px] flex-col items-center rounded-xl bg-muted px-2 py-1.5">
+                  <span className="text-lg">
+                    {l.condition === "좋음" ? "😊" : l.condition === "보통" ? "🙂" : "😣"}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground">{l.date.slice(3)}일</span>
+                  {!l.taken && <span className="text-[9px] font-bold text-destructive">미복용</span>}
+                </div>
+              ))}
+            </div>
+            {report ? (
+              <div className="animate-pop-in space-y-2.5">
+                <p className="text-sm leading-relaxed">{report.summary}</p>
+                {report.alerts.map((a, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                      a.level === "주의"
+                        ? "bg-destructive/10 text-destructive"
+                        : a.level === "관찰"
+                          ? "bg-sunshine text-accent-foreground"
+                          : "bg-leaf-soft text-secondary-foreground"
+                    }`}
+                  >
+                    <b>{a.level}</b> · {a.text}
+                  </div>
+                ))}
+                {report.tip && (
+                  <p className="rounded-xl bg-warm px-3 py-2 text-xs">💬 {report.tip}</p>
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  ※ 참고용 요약이며 의학적 진단이 아니에요.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                부모님이 남긴 컨디션·증상 기록을 분석해 주의할 변화를 알려드려요.
+              </p>
+            )}
+            {reportError && <p className="mt-2 text-xs text-destructive">{reportError}</p>}
+            <button
+              onClick={runAnalysis}
+              disabled={analyzing}
+              className="mt-3 w-full rounded-2xl bg-secondary py-3 text-sm font-bold text-secondary-foreground disabled:opacity-60"
+            >
+              {analyzing ? "분석 중…" : report ? "다시 분석하기" : "기록 분석하기"}
+            </button>
+          </section>
+
+          {/* 병원 일정 + 알림 */}
           <section className="mx-5 mt-5 rounded-3xl bg-warm p-5">
-            <h2 className="mb-2 text-sm font-bold">다가오는 병원 일정</h2>
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-card shadow-sm">
-                <span className="text-[9px] font-bold text-destructive">10월</span>
-                <span className="text-sm font-bold leading-none">2</span>
+            <h2 className="mb-3 text-sm font-bold">다가오는 병원 일정</h2>
+            {nextDays <= 5 && (
+              <div className="mb-3 flex items-center gap-2 rounded-xl bg-sunshine px-3 py-2 text-xs font-semibold text-accent-foreground">
+                <Bell className="h-4 w-4" /> D-{nextDays} · {nextAppt.title} 가 다가와요
               </div>
-              <div>
-                <p className="text-sm font-semibold">튼튼내과 정기 검진</p>
-                <p className="text-xs text-muted-foreground">오전 10:00 · 혈압·당뇨 상담</p>
+            )}
+            <div className="space-y-3">
+              {APPOINTMENTS.map((a) => {
+                const [, m, d] = a.date.split("-").map(Number);
+                return (
+                  <div key={a.id} className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-card shadow-sm">
+                      <span className="text-[9px] font-bold text-destructive">{m}월</span>
+                      <span className="text-sm font-bold leading-none">{d}</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold">{a.title}</p>
+                      <p className="text-xs text-muted-foreground">{a.time} · {a.memo}</p>
+                    </div>
+                    <span className="text-xs font-bold text-leaf">D-{daysUntil(a.date)}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 rounded-2xl bg-card p-3">
+              <p className="mb-2 text-xs font-semibold">미리 알림</p>
+              <div className="flex gap-1.5">
+                {REMINDER_OPTIONS.map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => setReminders((r) => ({ ...r, [o.id]: !r[o.id] }))}
+                    className={`flex-1 rounded-lg py-2 text-xs font-semibold ${
+                      reminders[o.id] ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
               </div>
+              <label className="mt-3 flex items-center justify-between text-xs">
+                <span>부모님께도 카톡 알림 보내기</span>
+                <input
+                  type="checkbox"
+                  checked={notifyParent}
+                  onChange={(e) => setNotifyParent(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--primary)]"
+                />
+              </label>
+              <button
+                onClick={testNotification}
+                className="mt-3 w-full rounded-xl bg-secondary py-2.5 text-xs font-bold text-secondary-foreground"
+              >
+                🔔 알림 미리 받아보기
+              </button>
             </div>
           </section>
 
@@ -485,7 +798,11 @@ function Index() {
           </button>
         </>
       ) : (
-        <KakaoSimulator onConfirm={confirmLunch} />
+        <KakaoSimulator
+          onConfirm={confirmLunch}
+          onCondition={addCondition}
+          appointment={nextAppt}
+        />
       )}
 
       {/* 하단 탭 */}
