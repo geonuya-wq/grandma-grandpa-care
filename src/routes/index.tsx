@@ -550,8 +550,20 @@ function Index() {
   const [showUpload, setShowUpload] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [logs, setLogs] = useState<ConditionLog[]>(PAST_LOGS);
+  const [report, setReport] = useState<HealthReport | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reminders, setReminders] = useState<Record<string, boolean>>({ d3: true, d1: true, d0: true });
+  const [notifyParent, setNotifyParent] = useState(true);
+  const analyze = useServerFn(analyzeHealthLogs);
 
   const doneCount = doses.filter((d) => d.status === "done").length;
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const confirmLunch = () => {
     setDoses((ds) =>
@@ -559,8 +571,42 @@ function Index() {
     );
     setShowConfetti(true);
     setTimeout(() => setShowConfetti(false), 2800);
-    setToast("어머니가 점심 약을 드셨어요! 💚");
-    setTimeout(() => setToast(null), 3000);
+    showToast("어머니가 점심 약을 드셨어요! 💚");
+  };
+
+  const addCondition = (condition: string, symptoms: string[], note: string) => {
+    setLogs((l) => [...l, { date: "09-27", dose: "점심", taken: true, condition, symptoms, note }]);
+    setReport(null);
+    showToast(`어머니 컨디션: ${condition}${symptoms.length ? ` · ${symptoms.join(", ")}` : ""}`);
+  };
+
+  const runAnalysis = async () => {
+    setAnalyzing(true);
+    setReportError(null);
+    try {
+      const r = await analyze({ data: { logs } });
+      if (r.error) setReportError(r.error);
+      else if (r.report) setReport(r.report);
+    } catch {
+      setReportError("분석에 실패했어요. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const nextAppt = APPOINTMENTS[0];
+  const nextDays = daysUntil(nextAppt.date);
+
+  const testNotification = async () => {
+    const body = `${fmtDate(nextAppt.date)} ${nextAppt.time} ${nextAppt.title} (D-${nextDays})`;
+    if (typeof Notification !== "undefined") {
+      const perm = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
+      if (perm === "granted") {
+        new Notification("🏥 병원 예약 알림", { body });
+        return;
+      }
+    }
+    showToast(`🏥 ${body}`);
   };
 
   return (
